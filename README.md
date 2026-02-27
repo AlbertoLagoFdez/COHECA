@@ -1,7 +1,7 @@
 # Simulador de protocolo de coherencia de caché
 
 Visualización de cómo van cambiando los estados en los bloques dentro de cada procesador utilizando una tabla de estados.
----
+
 ## Coherencia de caché en MP
 Los multiprocesadores generalmente admiten almacenamiento en caché de datos tanto compartidos como privados.
 * Los datos privados son utilizados por un solo procesador.
