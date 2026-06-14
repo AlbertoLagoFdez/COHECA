@@ -77,6 +77,12 @@ class Simulador:
             if hasattr(self.EstadoEnum, 'F') and self.cache[p][pos] == self.EstadoEnum.F: return p
         return None
 
+    def _hay_exclusivo(self, pos, excepto=None):
+        for p in range(self.num_procesadores):
+            if p == excepto: continue
+            if hasattr(self.EstadoEnum, 'E') and self.cache[p][pos] == self.EstadoEnum.E: return p
+        return None
+
     def _invalidar_otros(self, pos, excepto):
         for p in range(self.num_procesadores):
             if p != excepto:
@@ -93,7 +99,7 @@ class Simulador:
 
         if estado_actual != self.EstadoEnum.I:
             resultado = f"ACIERTO de lectura en P{proc+1}[{pos}] — estado: {estado_actual.value}"
-            return self._registrar(proc, "READ", pos, resultado, [], estado_actual, origen_dato, acierto=True)
+            return self._registrar(proc, "READ", pos, resultado, [], estado_actual, f"Caché P{proc+1} (propia)", acierto=True)
 
         eventos_bus.append("BusRd")
 
@@ -115,6 +121,11 @@ class Simulador:
                 self.cache[duenio_M][pos] = self.EstadoEnum.S
                 self.tocado[duenio_M][pos] = True
                 self.memoria_valida[pos] = True
+            duenio_E = self._hay_exclusivo(pos, excepto=proc)
+            if duenio_E is not None:
+                origen_dato = f"Caché P{duenio_E+1}"
+                self.cache[duenio_E][pos] = self.EstadoEnum.S
+                self.tocado[duenio_E][pos] = True
             hay_otra = self._hay_copia_valida(pos, excepto=proc)
             if hay_otra:
                 eventos_bus[0] = "BusRd(S)"; nuevo_estado = self.EstadoEnum.S
@@ -129,6 +140,10 @@ class Simulador:
                 self.cache[duenio_M][pos] = self.EstadoEnum.S
                 self.tocado[duenio_M][pos] = True
                 self.memoria_valida[pos] = True
+            duenio_E = self._hay_exclusivo(pos, excepto=proc)
+            if duenio_E is not None:
+                self.cache[duenio_E][pos] = self.EstadoEnum.S
+                self.tocado[duenio_E][pos] = True
             hay_otra = self._hay_copia_valida(pos, excepto=proc)
             if hay_otra:
                 eventos_bus[0] = "BusRd(S)"
@@ -137,6 +152,8 @@ class Simulador:
                     origen_dato = f"Caché P{forward_actual+1} (Forward)"
                     self.cache[forward_actual][pos] = self.EstadoEnum.S
                     self.tocado[forward_actual][pos] = True
+                elif duenio_E is not None:
+                    origen_dato = f"Caché P{duenio_E+1}"
                 else:
                     origen_dato = "Caché (compartida)"
                 nuevo_estado = self.EstadoEnum.F
@@ -155,6 +172,11 @@ class Simulador:
                 origen_dato = f"Caché P{duenio_O+1} (Owned)"
                 nuevo_estado = self.EstadoEnum.S
             else:
+                duenio_E = self._hay_exclusivo(pos, excepto=proc)
+                if duenio_E is not None:
+                    origen_dato = f"Caché P{duenio_E+1} (Owned)"
+                    self.cache[duenio_E][pos] = self.EstadoEnum.O
+                    self.tocado[duenio_E][pos] = True
                 hay_otra = self._hay_copia_valida(pos, excepto=proc)
                 nuevo_estado = self.EstadoEnum.S if hay_otra else self.EstadoEnum.E
 
@@ -170,13 +192,13 @@ class Simulador:
 
         if estado_actual == self.EstadoEnum.M:
             resultado = f"ACIERTO de escritura en P{proc+1}[{pos}] — estado: M"
-            return self._registrar(proc, "WRITE", pos, resultado, [], estado_actual, origen_dato, acierto=True)
+            return self._registrar(proc, "WRITE", pos, resultado, [], estado_actual, f"Caché P{proc+1} (propia)", acierto=True)
 
         if hasattr(self.EstadoEnum, 'E') and estado_actual == self.EstadoEnum.E:
             resultado = f"Escritura silenciosa P{proc+1}[{pos}]: E → M (sin bus)"
             self.cache[proc][pos] = self.EstadoEnum.M
             self.tocado[proc][pos] = True
-            return self._registrar(proc, "WRITE", pos, resultado, [], self.EstadoEnum.M, "—", acierto=True)
+            return self._registrar(proc, "WRITE", pos, resultado, [], self.EstadoEnum.M, f"Caché P{proc+1} (propia)", acierto=True)
 
         if hasattr(self.EstadoEnum, 'F') and estado_actual == self.EstadoEnum.F:
             eventos_bus.append("BusUpgr")
@@ -215,6 +237,10 @@ class Simulador:
                     origen_dato = f"Caché P{duenio_O+1} (Owned)"
                     self.cache[duenio_O][pos] = self.EstadoEnum.I
                     self.tocado[duenio_O][pos] = True
+            if hasattr(self.EstadoEnum, 'F'):
+                duenio_F = self._hay_forward(pos, excepto=proc)
+                if duenio_F is not None and origen_dato == "Memoria":
+                    origen_dato = f"Caché P{duenio_F+1} (Forward)"
 
         self._invalidar_otros(pos, excepto=proc)
         self.cache[proc][pos] = self.EstadoEnum.M
