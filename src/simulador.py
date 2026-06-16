@@ -195,7 +195,7 @@ class Simulador:
             return self._registrar(proc, "WRITE", pos, resultado, [], estado_actual, f"Caché P{proc+1} (propia)", acierto=True)
 
         if hasattr(self.EstadoEnum, 'E') and estado_actual == self.EstadoEnum.E:
-            resultado = f"Escritura silenciosa P{proc+1}[{pos}]: E → M (sin bus)"
+            resultado = f"Escritura P{proc+1}[{pos}]: E → M (sin bus)"
             self.cache[proc][pos] = self.EstadoEnum.M
             self.tocado[proc][pos] = True
             return self._registrar(proc, "WRITE", pos, resultado, [], self.EstadoEnum.M, f"Caché P{proc+1} (propia)", acierto=True)
